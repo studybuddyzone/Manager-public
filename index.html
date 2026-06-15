@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Firebase PDF Maker</title>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+
+<!-- jsPDF -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0d14;
+    --surface: #111622;
+    --card: #161d2e;
+    --border: #1e2a42;
+    --accent: #4f8ef7;
+    --accent2: #7c5cfc;
+    --accent3: #00d2a0;
+    --danger: #f74f6a;
+    --text: #e8ecf4;
+    --muted: #6b7a99;
+    --success: #00d2a0;
+  }
+
+  body {
+    font-family: 'Space Grotesk', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  header h1 { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.02em; }
+  header span { font-size: 0.78rem; color: var(--muted); margin-left: auto; font-family: 'JetBrains Mono', monospace; }
+
+  /* ── Layout ── */
+  .container { max-width: 1100px; margin: 0 auto; padding: 36px 24px; }
+
+  /* ── Tab Nav ── */
+  .tabs {
+    display: flex; gap: 0; margin-bottom: 32px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 6px;
+    width: fit-content;
+  }
+  .tab-btn {
+    padding: 10px 22px;
+    border: none; background: transparent;
+    color: var(--muted); font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.88rem; font-weight: 500;
+    border-radius: 10px; cursor: pointer;
+    transition: all 0.18s;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .tab-btn.active {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff; box-shadow: 0 4px 16px rgba(79,142,247,0.3);
+  }
+  .tab-btn:hover:not(.active) { color: var(--text); background: var(--border); }
+  .tab-icon { font-size: 15px; }
+
+  /* ── Section Card ── */
+  .section-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 28px;
+    margin-bottom: 20px;
+  }
+  .section-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .section-title {
+    font-size: 1.05rem; font-weight: 600;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .badge {
+    font-size: 0.7rem; font-family: 'JetBrains Mono', monospace;
+    background: rgba(79,142,247,0.15); color: var(--accent);
+    border: 1px solid rgba(79,142,247,0.3);
+    padding: 2px 8px; border-radius: 20px;
+  }
+  .badge.green { background: rgba(0,210,160,0.12); color: var(--accent3); border-color: rgba(0,210,160,0.25); }
+  .badge.purple { background: rgba(124,92,252,0.15); color: var(--accent2); border-color: rgba(124,92,252,0.3); }
+
+  /* ── Buttons ── */
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 20px; border: none; border-radius: 10px;
+    font-family: 'Space Grotesk', sans-serif; font-size: 0.88rem; font-weight: 600;
+    cursor: pointer; transition: all 0.18s; text-decoration: none;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff; box-shadow: 0 4px 14px rgba(79,142,247,0.25);
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(79,142,247,0.4); }
+  .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-success { background: linear-gradient(135deg, #00b890, var(--accent3)); color: #fff; }
+  .btn-success:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,210,160,0.35); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important; }
+
+  /* ── Status / Log ── */
+  .status-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px 18px;
+    font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;
+    color: var(--muted); max-height: 160px; overflow-y: auto;
+    line-height: 1.7;
+  }
+  .status-box .log-ok { color: var(--accent3); }
+  .status-box .log-err { color: var(--danger); }
+  .status-box .log-info { color: var(--accent); }
+
+  /* ── Data Preview ── */
+  .data-preview {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px;
+    font-family: 'JetBrains Mono', monospace; font-size: 0.76rem;
+    color: #a0b0d0; max-height: 220px; overflow-y: auto;
+    white-space: pre-wrap; word-break: break-all; line-height: 1.6;
+  }
+
+  /* ── Stats Row ── */
+  .stats-row { display: flex; gap: 12px; flex-wrap: wrap; margin: 16px 0; }
+  .stat-chip {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 16px;
+    font-size: 0.82rem; color: var(--muted);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .stat-chip strong { color: var(--text); }
+
+  /* ── Collection List ── */
+  .coll-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+  .coll-chip {
+    background: rgba(124,92,252,0.12); border: 1px solid rgba(124,92,252,0.3);
+    color: var(--accent2); border-radius: 8px;
+    padding: 5px 13px; font-size: 0.8rem; font-family: 'JetBrains Mono', monospace;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .coll-chip:hover, .coll-chip.selected {
+    background: var(--accent2); color: #fff;
+  }
+
+  /* ── Divider ── */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+  /* ── Panel ── */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* ── Spinner ── */
+  .spinner {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff; border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Auth Table Preview ── */
+  .auth-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px; margin: 12px 0;
+  }
+  .auth-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px;
+  }
+  .auth-card .uid { font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; color: var(--muted); word-break: break-all; }
+  .auth-card .email { font-size: 0.85rem; font-weight: 500; margin-top: 4px; }
+  .auth-card .provider { font-size: 0.72rem; color: var(--accent3); margin-top: 3px; }
+
+  /* responsive */
+  @media(max-width:640px){
+    .tabs { flex-direction: column; width: 100%; }
+    header { padding: 14px 16px; }
+    .container { padding: 20px 14px; }
+    .section-card { padding: 18px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-icon">🔥</div>
+  <h1>Firebase PDF Maker</h1>
+  <span id="db-status">● Connecting…</span>
+</header>
+
+<div class="container">
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('rtdb')">
+      <span class="tab-icon">🗄️</span> Realtime Database
+    </button>
+    <button class="tab-btn" onclick="switchTab('firestore')">
+      <span class="tab-icon">📋</span> Firestore
+    </button>
+    <button class="tab-btn" onclick="switchTab('auth')">
+      <span class="tab-icon">🔐</span> Authentication
+    </button>
+  </div>
+
+  <!-- ══ REALTIME DATABASE PANEL ══ -->
+  <div id="panel-rtdb" class="panel active">
+    <div class="section-card">
+      <div class="section-header">
+        <div class="section-title">🗄️ Realtime Database <span class="badge">RTDB</span></div>
+        <button class="btn btn-secondary" onclick="loadRTDB()">↻ Reload Data</button>
+      </div>
+
+      <div class="stats-row" id="rtdb-stats">
+        <div class="stat-chip">Status: <strong id="rtdb-status-txt">Not loaded</strong></div>
+        <div class="stat-chip">Records: <strong id="rtdb-count">–</strong></div>
+        <div class="stat-chip">Size: <strong id="rtdb-size">–</strong></div>
+      </div>
+
+      <div id="rtdb-preview" class="data-preview">Loading data…</div>
+      <hr class="divider" />
+
+      <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+        <button class="btn btn-primary" id="rtdb-pdf-btn" onclick="generateRTDBPdf()" disabled>
+          📄 Generate PDF
+        </button>
+        <select id="rtdb-format" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:10px;font-family:inherit;font-size:0.85rem;">
+          <option value="table">Table Format</option>
+          <option value="json">JSON Format</option>
+          <option value="list">List Format</option>
+        </select>
+      </div>
+
+      <div class="status-box" id="rtdb-log" style="margin-top:16px;">Waiting…</div>
+    </div>
+  </div>
+
+  <!-- ══ FIRESTORE PANEL ══ -->
+  <div id="panel-firestore" class="panel">
+    <div class="section-card">
+      <div class="section-header">
+        <div class="section-title">📋 Firestore <span class="badge purple">Collections</span></div>
+        <button class="btn btn-secondary" onclick="loadFirestore()">↻ Scan Collections</button>
+      </div>
+
+      <p style="font-size:0.82rem;color:var(--muted);margin-bottom:10px;">Firestore collections मिलती हैं, उन्हें select करें:</p>
+      <div class="coll-list" id="fs-collections">
+        <span style="color:var(--muted);font-size:0.82rem;">पहले "Scan Collections" दबाएँ…</span>
+      </div>
+
+      <div id="fs-stats" class="stats-row" style="display:none;">
+        <div class="stat-chip">Selected: <strong id="fs-selected-name">–</strong></div>
+        <div class="stat-chip">Docs: <strong id="fs-doc-count">–</strong></div>
+      </div>
+
+      <div id="fs-preview" class="data-preview" style="margin-top:12px;">Collection select करें…</div>
+      <hr class="divider" />
+
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+        <button class="btn btn-primary" id="fs-pdf-btn" onclick="generateFirestorePdf()" disabled>
+          📄 Generate PDF
+        </button>
+        <select id="fs-format" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:10px;font-family:inherit;font-size:0.85rem;">
+          <option value="table">Table Format</option>
+          <option value="cards">Card Format</option>
+          <option value="json">JSON Format</option>
+        </select>
+        <label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;color:var(--muted);">
+          <input type="checkbox" id="fs-all" style="accent-color:var(--accent2);" /> All Collections
+        </label>
+      </div>
+
+      <div class="status-box" id="fs-log" style="margin-top:16px;">Waiting…</div>
+    </div>
+  </div>
+
+  <!-- ══ AUTHENTICATION PANEL ══ -->
+  <div id="panel-auth" class="panel">
+    <div class="section-card">
+      <div class="section-header">
+        <div class="section-title">🔐 Authentication <span class="badge green">Users</span></div>
+        <button class="btn btn-secondary" onclick="loadAuthUsers()">↻ Load Users</button>
+      </div>
+
+      <p style="font-size:0.82rem;color:var(--muted);margin-bottom:12px;">
+        ⚠️ Firebase Auth user list client SDK से directly नहीं मिलती। यह tool current logged-in user + Realtime DB में stored auth data use करता है।
+        पूरी user list के लिए Admin SDK चाहिए।
+      </p>
+
+      <div class="stats-row" id="auth-stats">
+        <div class="stat-chip">Current User: <strong id="auth-current">Not signed in</strong></div>
+        <div class="stat-chip">DB Users Found: <strong id="auth-db-count">–</strong></div>
+      </div>
+
+      <div id="auth-grid" class="auth-grid"></div>
+      <div id="auth-preview" class="data-preview" style="margin-top:12px;">Load users to preview…</div>
+
+      <hr class="divider" />
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+        <button class="btn btn-success" id="auth-pdf-btn" onclick="generateAuthPdf()" disabled>
+          📄 Generate Auth PDF
+        </button>
+        <select id="auth-format" style="background:var(--surface);border:1px solid var(--border);color:var(--text);padding:8px 14px;border-radius:10px;font-family:inherit;font-size:0.85rem;">
+          <option value="table">Table Format</option>
+          <option value="detailed">Detailed Format</option>
+        </select>
+      </div>
+      <div class="status-box" id="auth-log" style="margin-top:16px;">Waiting…</div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+// ══════════════════════════════════
+// Firebase Init
+// ══════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyCZhDPaVY7jv_hXtHdpVqUcGe1hwAxvZmc",
+  authDomain: "students-e5183.firebaseapp.com",
+  databaseURL: "https://students-e5183-default-rtdb.firebaseio.com",
+  projectId: "students-e5183",
+  storageBucket: "students-e5183.firebasestorage.app",
+  messagingSenderId: "473442117683",
+  appId: "1:473442117683:web:f39adc0665317aa95e9b46",
+  measurementId: "G-DT4XQLZJW3"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db      = firebase.database();
+const fstore  = firebase.firestore();
+const auth    = firebase.auth();
+
+// State
+let rtdbData     = null;
+let fsData       = {};
+let authUsers    = [];
+let selectedColl = null;
+let fsAllCollections = [];
+
+// ══ Status ══
+const dbStatus = document.getElementById('db-status');
+auth.onAuthStateChanged(u => {
+  document.getElementById('auth-current').textContent = u ? (u.email || u.uid) : 'Not signed in';
+});
+
+// ══ Tab Switch ══
+function switchTab(tab) {
+  ['rtdb','firestore','auth'].forEach(t => {
+    document.getElementById('panel-'+t).classList.toggle('active', t===tab);
+  });
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    b.classList.toggle('active', ['rtdb','firestore','auth'][i]===tab);
+  });
+}
+
+// ══════════════════════════════════
+// RTDB
+// ══════════════════════════════════
+async function loadRTDB() {
+  log('rtdb','<span class="log-info">● Realtime DB fetch कर रहे हैं…</span>');
+  document.getElementById('rtdb-preview').textContent = 'Loading…';
+  document.getElementById('rtdb-pdf-btn').disabled = true;
+  try {
+    const snap = await db.ref('/').once('value');
+    rtdbData = snap.val();
+    if (!rtdbData) { log('rtdb','<span class="log-err">✗ No data found</span>'); document.getElementById('rtdb-preview').textContent = 'कोई data नहीं मिला।'; return; }
+    const str = JSON.stringify(rtdbData, null, 2);
+    document.getElementById('rtdb-preview').textContent = str;
+    document.getElementById('rtdb-count').textContent = countLeaves(rtdbData);
+    document.getElementById('rtdb-size').textContent = formatBytes(str.length);
+    document.getElementById('rtdb-status-txt').textContent = '✓ Loaded';
+    document.getElementById('rtdb-pdf-btn').disabled = false;
+    dbStatus.textContent = '● Connected';
+    dbStatus.style.color = 'var(--accent3)';
+    log('rtdb','<span class="log-ok">✓ Data load हो गया।</span>');
+  } catch(e) {
+    log('rtdb','<span class="log-err">✗ Error: '+e.message+'</span>');
+    document.getElementById('rtdb-preview').textContent = 'Error: '+e.message;
+  }
+}
+loadRTDB();
+
+function countLeaves(obj, n=0) {
+  if (typeof obj !== 'object' || obj===null) return n+1;
+  for(const k of Object.keys(obj)) n = countLeaves(obj[k], n);
+  return n;
+}
+function formatBytes(n) {
+  if(n<1024) return n+'B';
+  if(n<1024*1024) return (n/1024).toFixed(1)+'KB';
+  return (n/1024/1024).toFixed(2)+'MB';
+}
+
+// ══════════════════════════════════
+// FIRESTORE
+// ══════════════════════════════════
+const KNOWN_COLLECTIONS = ['users','students','teachers','courses','orders','products','posts','todos','classes','subjects','marks','attendance','fees','events','notifications','settings','admins','staff','library','books','members','exams','results','departments','branches'];
+
+async function loadFirestore() {
+  log('fs','<span class="log-info">● Collections scan कर रहे हैं…</span>');
+  const div = document.getElementById('fs-collections');
+  div.innerHTML = '<span style="color:var(--muted);font-size:0.82rem;"><span class="spinner"></span> Scanning…</span>';
+  fsAllCollections = [];
+  for(const coll of KNOWN_COLLECTIONS) {
+    try {
+      const snap = await fstore.collection(coll).limit(1).get();
+      if(!snap.empty) fsAllCollections.push(coll);
+    } catch(e) { /* skip */ }
+  }
+  if(!fsAllCollections.length) {
+    div.innerHTML = '<span style="color:var(--muted);">कोई collection नहीं मिली। Firebase rules check करें।</span>';
+    log('fs','<span class="log-err">✗ No accessible collections found</span>');
+    return;
+  }
+  div.innerHTML = '';
+  fsAllCollections.forEach(c => {
+    const chip = document.createElement('button');
+    chip.className = 'coll-chip';
+    chip.textContent = c;
+    chip.onclick = () => selectCollection(c, chip);
+    div.appendChild(chip);
+  });
+  log('fs',`<span class="log-ok">✓ ${fsAllCollections.length} collections मिलीं</span>`);
+}
+
+async function selectCollection(name, chip) {
+  document.querySelectorAll('.coll-chip').forEach(c => c.classList.remove('selected'));
+  chip.classList.add('selected');
+  selectedColl = name;
+  log('fs','<span class="log-info">● '+name+' load हो रहा है…</span>');
+  document.getElementById('fs-preview').textContent = 'Loading…';
+  document.getElementById('fs-pdf-btn').disabled = true;
+  try {
+    const snap = await fstore.collection(name).get();
+    fsData[name] = snap.docs.map(d => ({id: d.id, ...d.data()}));
+    document.getElementById('fs-stats').style.display = 'flex';
+    document.getElementById('fs-selected-name').textContent = name;
+    document.getElementById('fs-doc-count').textContent = fsData[name].length;
+    document.getElementById('fs-preview').textContent = JSON.stringify(fsData[name], null, 2);
+    document.getElementById('fs-pdf-btn').disabled = false;
+    log('fs',`<span class="log-ok">✓ ${fsData[name].length} documents load हुए</span>`);
+  } catch(e) {
+    log('fs','<span class="log-err">✗ '+e.message+'</span>');
+  }
+}
+
+// ══════════════════════════════════
+// AUTH USERS
+// ══════════════════════════════════
+async function loadAuthUsers() {
+  log('auth','<span class="log-info">● Auth data खोज रहे हैं…</span>');
+  authUsers = [];
+  const grid = document.getElementById('auth-grid');
+  const preview = document.getElementById('auth-preview');
+  grid.innerHTML = '';
+  const paths = ['users','auth_users','members','accounts','students','teachers','staff'];
+  for(const p of paths) {
+    try {
+      const snap = await db.ref('/'+p).once('value');
+      const val = snap.val();
+      if(val && typeof val === 'object') {
+        Object.entries(val).forEach(([uid,data]) => {
+          if(data && (data.email || data.uid || data.name)) {
+            authUsers.push({uid, ...data, _source: p});
+          }
+        });
+      }
+    } catch(e) {}
+    try {
+      const snap = await fstore.collection(p).get();
+      snap.docs.forEach(d => {
+        const dd = d.data();
+        if(dd.email || dd.uid) authUsers.push({uid:d.id, ...dd, _source:'fs:'+p});
+      });
+    } catch(e) {}
+  }
+  // Remove duplicates by uid
+  const seen = new Set();
+  authUsers = authUsers.filter(u => { if(seen.has(u.uid)) return false; seen.add(u.uid); return true; });
+  document.getElementById('auth-db-count').textContent = authUsers.length;
+  if(!authUsers.length) {
+    preview.textContent = 'कोई user data नहीं मिला। Firebase rules check करें।';
+    log('auth','<span class="log-err">✗ No user records found in DB</span>');
+    return;
+  }
+  grid.innerHTML = '';
+  authUsers.slice(0,12).forEach(u => {
+    const card = document.createElement('div');
+    card.className = 'auth-card';
+    card.innerHTML = `
+      <div class="uid">UID: ${u.uid||'–'}</div>
+      <div class="email">${u.email||u.name||'Unknown'}</div>
+      <div class="provider">source: ${u._source||'unknown'}</div>
+    `;
+    grid.appendChild(card);
+  });
+  preview.textContent = JSON.stringify(authUsers, null, 2);
+  document.getElementById('auth-pdf-btn').disabled = false;
+  log('auth',`<span class="log-ok">✓ ${authUsers.length} users मिले</span>`);
+}
+
+// ══════════════════════════════════
+// PDF GENERATION
+// ══════════════════════════════════
+function flattenObj(obj, prefix='') {
+  const out = {};
+  for(const [k,v] of Object.entries(obj||{})) {
+    const key = prefix ? prefix+'.'+k : k;
+    if(v && typeof v === 'object' && !Array.isArray(v)) Object.assign(out, flattenObj(v, key));
+    else out[key] = Array.isArray(v) ? JSON.stringify(v) : String(v??'');
+  }
+  return out;
+}
+
+function makePdfBase(title, subtitle) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+
+  // Header gradient-like bar
+  doc.setFillColor(15,21,36);
+  doc.rect(0,0,210,32,'F');
+  doc.setFillColor(79,142,247);
+  doc.rect(0,0,6,32,'F');
+
+  doc.setTextColor(232,236,244);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(16);
+  doc.text(title, 14, 14);
+  doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.setTextColor(107,122,153);
+  doc.text(subtitle, 14, 22);
+  doc.text('Generated: '+new Date().toLocaleString('hi-IN'), 14, 28);
+  doc.text('Firebase Project: students-e5183', 130, 22);
+
+  return { doc, startY: 38 };
+}
+
+function addFooter(doc) {
+  const pages = doc.internal.getNumberOfPages();
+  for(let i=1;i<=pages;i++){
+    doc.setPage(i);
+    doc.setFontSize(7); doc.setTextColor(107,122,153);
+    doc.text(`Page ${i} of ${pages} · Firebase PDF Maker · students-e5183`, 14, 290);
+    doc.setDrawColor(30,42,66); doc.setLineWidth(0.3);
+    doc.line(14,287,196,287);
+  }
+}
+
+// ── RTDB PDF ──
+function generateRTDBPdf() {
+  if(!rtdbData) return;
+  const format = document.getElementById('rtdb-format').value;
+  log('rtdb','<span class="log-info">● PDF बना रहे हैं ('+format+')…</span>');
+  const btn = document.getElementById('rtdb-pdf-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Generating…';
+
+  setTimeout(() => {
+    try {
+      const { doc, startY } = makePdfBase('🗄️ Realtime Database Export', 'Firebase Realtime Database — Full Snapshot');
+
+      if(format === 'json') {
+        doc.setFont('courier','normal'); doc.setFontSize(7); doc.setTextColor(50,80,140);
+        const lines = JSON.stringify(rtdbData, null, 2).split('\n');
+        let y = startY;
+        lines.forEach(line => {
+          if(y > 280) { doc.addPage(); y = 20; }
+          doc.text(line, 14, y); y += 4.2;
+        });
+      } else if(format === 'list') {
+        let y = startY;
+        doc.setFontSize(9);
+        renderList(doc, rtdbData, '', y, []);
+      } else {
+        // TABLE — flatten all top-level keys as rows
+        const rows = [];
+        const cols = new Set(['key','value']);
+        function walk(obj, prefix) {
+          if(!obj || typeof obj !== 'object') return;
+          Object.entries(obj).forEach(([k,v]) => {
+            const fullKey = prefix ? prefix+'/'+k : k;
+            if(v && typeof v === 'object') {
+              const flat = flattenObj(v);
+              Object.keys(flat).forEach(fk => cols.add(fk));
+              rows.push({key: fullKey, ...flat});
+            } else {
+              rows.push({key: fullKey, value: String(v??'')});
+            }
+          });
+        }
+        walk(rtdbData, '');
+        const headers = ['key', ...Array.from(cols).filter(c=>c!=='key').slice(0,8)];
+        doc.autoTable({
+          startY,
+          head:[headers],
+          body: rows.map(r => headers.map(h => String(r[h]??'').slice(0,60))),
+          styles:{fontSize:7, cellPadding:2},
+          headStyles:{fillColor:[79,142,247], textColor:255, fontStyle:'bold'},
+          alternateRowStyles:{fillColor:[240,243,255]},
+          margin:{left:14,right:14},
+        });
+      }
+
+      addFooter(doc);
+      doc.save('rtdb-export-'+Date.now()+'.pdf');
+      log('rtdb','<span class="log-ok">✓ PDF download हो रही है!</span>');
+    } catch(e) {
+      log('rtdb','<span class="log-err">✗ PDF Error: '+e.message+'</span>');
+    }
+    btn.disabled = false; btn.innerHTML = '📄 Generate PDF';
+  }, 100);
+}
+
+let listY = 20;
+function renderList(doc, obj, prefix, y, _) {
+  listY = y;
+  function walk(o, indent) {
+    if(!o || typeof o !== 'object') return;
+    Object.entries(o).forEach(([k,v]) => {
+      if(listY > 280) { doc.addPage(); listY = 20; }
+      if(v && typeof v === 'object') {
+        doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(79,142,247);
+        doc.text('  '.repeat(indent)+'▸ '+k, 14, listY); listY += 5;
+        walk(v, indent+1);
+      } else {
+        doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(60,60,80);
+        const txt = '  '.repeat(indent)+'• '+k+': '+String(v??'').slice(0,80);
+        doc.text(txt, 14, listY); listY += 4.5;
+      }
+    });
+  }
+  walk(obj, 0);
+}
+
+// ── FIRESTORE PDF ──
+async function generateFirestorePdf() {
+  const all = document.getElementById('fs-all').checked;
+  const format = document.getElementById('fs-format').value;
+  const btn = document.getElementById('fs-pdf-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Generating…';
+
+  let dataMap = {};
+  if(all) {
+    log('fs','<span class="log-info">● सभी collections load हो रही हैं…</span>');
+    for(const c of fsAllCollections) {
+      if(fsData[c]) { dataMap[c] = fsData[c]; continue; }
+      try {
+        const snap = await fstore.collection(c).get();
+        dataMap[c] = snap.docs.map(d=>({id:d.id,...d.data()}));
+      } catch(e) {}
+    }
+  } else {
+    if(!selectedColl||!fsData[selectedColl]) { log('fs','<span class="log-err">✗ पहले collection select करें</span>'); btn.disabled=false; btn.innerHTML='📄 Generate PDF'; return; }
+    dataMap[selectedColl] = fsData[selectedColl];
+  }
+
+  setTimeout(() => {
+    try {
+      const collNames = Object.keys(dataMap);
+      const { doc, startY } = makePdfBase('📋 Firestore Export', 'Collections: '+collNames.join(', '));
+      let curY = startY;
+
+      collNames.forEach(cName => {
+        const docs = dataMap[cName];
+        if(!docs||!docs.length) return;
+        // Section title
+        if(curY > 260) { doc.addPage(); curY = 20; }
+        doc.setFillColor(15,21,60);
+        doc.rect(14, curY, 182, 8, 'F');
+        doc.setTextColor(124,92,252); doc.setFont('helvetica','bold'); doc.setFontSize(9);
+        doc.text('📋 Collection: '+cName+' ('+docs.length+' docs)', 17, curY+5.5);
+        curY += 12;
+
+        if(format === 'json') {
+          doc.setFont('courier','normal'); doc.setFontSize(6.5); doc.setTextColor(40,60,120);
+          const lines = JSON.stringify(docs, null, 2).split('\n');
+          lines.forEach(line => {
+            if(curY>280){doc.addPage();curY=20;}
+            doc.text(line.slice(0,110), 14, curY); curY+=4;
+          });
+        } else if(format === 'cards') {
+          docs.forEach((d,i) => {
+            if(curY>260){doc.addPage();curY=20;}
+            doc.setFillColor(245,246,255);
+            const flat = flattenObj(d);
+            const keys = Object.keys(flat);
+            const cardH = Math.min(keys.length*5+12, 60);
+            doc.rect(14,curY,182,cardH,'F');
+            doc.setDrawColor(200,200,240); doc.rect(14,curY,182,cardH);
+            doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(79,142,247);
+            doc.text('Doc #'+(i+1)+' — '+String(d.id||'').slice(0,30), 17, curY+6);
+            doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(60,70,90);
+            let ly = curY+11;
+            keys.slice(0,8).forEach(k => {
+              if(ly<curY+cardH-2) { doc.text(k+': '+String(flat[k]||'').slice(0,60), 17, ly); ly+=4.5; }
+            });
+            curY += cardH+4;
+          });
+        } else {
+          // Table
+          const allKeys = new Set();
+          docs.forEach(d => { const f=flattenObj(d); Object.keys(f).forEach(k=>allKeys.add(k)); });
+          const headers = ['id',...Array.from(allKeys).filter(k=>k!=='id').slice(0,9)];
+          doc.autoTable({
+            startY: curY,
+            head:[headers],
+            body: docs.map(d => { const f=flattenObj(d); return headers.map(h=>String(f[h]??d[h]??'').slice(0,50)); }),
+            styles:{fontSize:6.5, cellPadding:1.8},
+            headStyles:{fillColor:[124,92,252], textColor:255},
+            alternateRowStyles:{fillColor:[248,246,255]},
+            margin:{left:14,right:14},
+            didDrawPage: data => { curY = data.cursor.y; }
+          });
+          curY = doc.lastAutoTable.finalY + 10;
+        }
+        curY += 6;
+      });
+
+      addFooter(doc);
+      doc.save('firestore-export-'+Date.now()+'.pdf');
+      log('fs','<span class="log-ok">✓ PDF download हो रही है!</span>');
+    } catch(e) {
+      log('fs','<span class="log-err">✗ PDF Error: '+e.message+'</span>');
+    }
+    btn.disabled=false; btn.innerHTML='📄 Generate PDF';
+  }, 100);
+}
+
+// ── AUTH PDF ──
+function generateAuthPdf() {
+  if(!authUsers.length) return;
+  const format = document.getElementById('auth-format').value;
+  const btn = document.getElementById('auth-pdf-btn');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Generating…';
+  setTimeout(() => {
+    try {
+      const { doc, startY } = makePdfBase('🔐 Authentication Users Export', 'Firebase Auth — User Records (from DB)');
+      const curUser = auth.currentUser;
+      if(curUser) {
+        doc.setFontSize(8); doc.setTextColor(60,80,130);
+        doc.text('Current Signed-In: '+(curUser.email||curUser.uid), 14, startY);
+      }
+      const y = curUser ? startY+8 : startY;
+
+      if(format === 'detailed') {
+        let cy = y;
+        authUsers.forEach((u,i) => {
+          if(cy>260){doc.addPage();cy=20;}
+          doc.setFillColor(240,255,250);
+          const keys = Object.keys(u).filter(k=>k!=='_source');
+          const h = Math.min(keys.length*5+14,70);
+          doc.rect(14,cy,182,h,'F');
+          doc.setDrawColor(0,200,160); doc.rect(14,cy,182,h);
+          doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(0,140,110);
+          doc.text('User #'+(i+1)+(u.email?' — '+u.email:''), 17, cy+7);
+          doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(40,60,60);
+          let ly=cy+13;
+          keys.slice(0,10).forEach(k=>{
+            if(ly<cy+h-2){doc.text(k+': '+String(u[k]||'').slice(0,70), 17, ly);ly+=4.5;}
+          });
+          cy+=h+5;
+        });
+      } else {
+        const allKeys = new Set();
+        authUsers.forEach(u=>Object.keys(u).forEach(k=>{ if(k!=='_source') allKeys.add(k); }));
+        const headers = ['uid','email','name','phone',...Array.from(allKeys).filter(k=>!['uid','email','name','phone','_source'].includes(k)).slice(0,6)];
+        doc.autoTable({
+          startY: y,
+          head:[headers],
+          body: authUsers.map(u=>headers.map(h=>String(u[h]||'').slice(0,40))),
+          styles:{fontSize:7, cellPadding:2},
+          headStyles:{fillColor:[0,180,140], textColor:255, fontStyle:'bold'},
+          alternateRowStyles:{fillColor:[240,255,250]},
+          margin:{left:14,right:14},
+        });
+      }
+
+      addFooter(doc);
+      doc.save('auth-users-'+Date.now()+'.pdf');
+      log('auth','<span class="log-ok">✓ Auth PDF download हो रही है!</span>');
+    } catch(e) {
+      log('auth','<span class="log-err">✗ PDF Error: '+e.message+'</span>');
+    }
+    btn.disabled=false; btn.innerHTML='📄 Generate Auth PDF';
+  },100);
+}
+
+// ══ Log helper ══
+function log(panel, msg) {
+  const box = document.getElementById(panel+'-log');
+  box.innerHTML += msg + '<br>';
+  box.scrollTop = box.scrollHeight;
+}
+</script>
+</body>
+</html>
